@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.gradle.api.plugins.nexus.android.testapplication">
+
+    <application />
+</manifest>

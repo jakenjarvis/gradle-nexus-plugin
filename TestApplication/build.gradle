@@ -1,0 +1,99 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        // https://github.com/JakeWharton/sdk-manager-plugin
+        classpath 'com.jakewharton.sdkmanager:gradle-plugin:0.12.+'
+
+        classpath 'com.android.tools.build:gradle:0.11.+'
+    }
+}
+
+apply plugin: 'android-sdk-manager'
+
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+// http://tools.android.com/tech-docs/new-build-system/version-compatibility
+
+project(':androidapp') {
+    apply plugin: 'android'
+
+    dependencies {
+        compile project(path: ':androidlib')
+        compile project(path: ':javalib')
+    }
+
+    android {
+        compileSdkVersion 19
+        buildToolsVersion "19.1.0"
+
+        defaultConfig {
+            applicationId "org.gradle.api.plugins.nexus.android.testapplication"
+            minSdkVersion 10
+            targetSdkVersion 19
+            versionCode 1
+            versionName "1.0"
+        }
+        buildTypes {
+            release {
+                runProguard false
+            }
+        }
+        lintOptions {
+            abortOnError false
+        }
+    }
+}
+
+
+project(':androidlib') {
+    apply plugin: 'android-library'
+
+    dependencies {
+    }
+
+    android {
+        compileSdkVersion 19
+        buildToolsVersion "19.1.0"
+
+        defaultConfig {
+            applicationId "org.gradle.api.plugins.nexus.android.testlibrary"
+            minSdkVersion 10
+            targetSdkVersion 19
+            versionCode 1
+            versionName "1.0"
+        }
+        buildTypes {
+            release {
+                runProguard false
+            }
+        }
+        lintOptions {
+            abortOnError false
+        }
+    }
+}
+
+project(':javalib') {
+    apply plugin: 'java'
+
+    project.configurations {
+        provided
+        provided.extendsFrom(compile)
+    }
+
+    sourceSets {
+        main.compileClasspath += project.configurations.provided
+        test.compileClasspath += project.configurations.provided
+        test.runtimeClasspath += project.configurations.provided
+    }
+
+    dependencies {
+        provided "com.google.android:android:4.1.1.4"
+    }
+}
