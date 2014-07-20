@@ -44,8 +44,11 @@ abstract class AbstractIntegrationTest extends Specification {
         }
 
         buildFile = createNewFile(integTestDir, 'build.gradle')
+        writeDefaultBuildFile(buildFile)
+    }
 
-        buildFile << """
+    protected void writeDefaultBuildFile(File buildfile) {
+        buildfile << """
 buildscript {
     dependencies {
         classpath files('../classes/main')
@@ -77,6 +80,16 @@ buildscript {
         }
 
         file
+    }
+
+    protected File copyFile(File source, File target) {
+        if(!source.exists()) {
+            fail("Unable to copy test file because the source file does not exist: $source.canonicalPath")
+        }
+        if(target.exists()) {
+            fail("Unable to copy test file because the target file exists: $target.canonicalPath")
+        }
+        target << source.readBytes()
     }
 
     protected void assertExistingFiles(File dir, List<String> requiredFilenames) {
@@ -116,7 +129,21 @@ buildscript {
     }
 
     protected GradleProject runTasks(File projectDir, String... tasks) {
-        ProjectConnection connection = GradleConnector.newConnector().forProjectDirectory(projectDir).connect()
+        runTasks(null, projectDir, tasks)
+    }
+
+    protected GradleProject runTasks(String gradleVersion, File projectDir, String... tasks) {
+        ProjectConnection connection
+        if(gradleVersion == null) {
+            connection = GradleConnector.newConnector()
+                .forProjectDirectory(projectDir)
+                .connect()
+        } else {
+            connection = GradleConnector.newConnector()
+                .forProjectDirectory(projectDir)
+                .useGradleVersion(gradleVersion)
+                .connect()
+        }
 
         try {
             BuildLauncher builder = connection.newBuild()
