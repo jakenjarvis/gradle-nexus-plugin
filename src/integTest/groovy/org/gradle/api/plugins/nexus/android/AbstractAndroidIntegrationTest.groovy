@@ -16,6 +16,8 @@
 package org.gradle.api.plugins.nexus.android
 
 import org.gradle.api.plugins.nexus.AbstractIntegrationTest
+import org.gradle.api.plugins.nexus.android.helper.AndroidBuildGradleBuilderInterface
+import org.gradle.api.plugins.nexus.android.helper.AndroidProjectSettings
 
 /**
  * Abstract integregration test using Gradle's tooling API with android sdk.
@@ -23,116 +25,108 @@ import org.gradle.api.plugins.nexus.AbstractIntegrationTest
  * @author jaken.jarvis@gmail.com
  */
 abstract class AbstractAndroidIntegrationTest extends AbstractIntegrationTest {
-    def buildTargetGradleVersion = "1.12"
+    protected AndroidProjectSettings rootSettings
+    protected File settingsFile
 
-    // https://github.com/JakeWharton/sdk-manager-plugin
-    def buildscriptDependenciesAndroidSdkManagerPluginVersion = "0.12.+"
+    protected Map<String, AndroidProjectSettings> subprojects = [:]
 
-    // http://tools.android.com/tech-docs/new-build-system/version-compatibility
-    def buildscriptDependenciesAndroidGradlePluginVersion = "0.12.+"
+    protected void onSetup() {
+        rootSettings = createRootAndroidProjectSettings()
+        AndroidBuildGradleBuilderInterface builder = rootSettings.androidGradlePluginVersion.getBuilder()
 
-    def dependenciesAndroidVersion = "4.1.1.4"
+        buildFile = createNewFile(integTestDir, 'build.gradle')
+        buildFile << builder.getRootBuildGradleString(rootSettings)
 
-    def androidCompileSdkVersion = 19
-    def androidBuildToolsVersion = "19.1.0"
-
-    def androidDefaultConfigApplicationId = "org.gradle.api.plugins.nexus.android"
-    def androidDefaultConfigMinSdkVersion = 8
-    def androidDefaultConfigTargetSdkVersion = 19
-    def androidDefaultConfigVersionCode = 1
-    def androidDefaultConfigVersionName = "1.0.0"
-
-    def defaultAndroidKeyStoreFile = new File('src/integTest/groovy/org/gradle/api/plugins/nexus/android/gradle_nexus_plugin_android_test.keystore')
-
-    def androidStoreFile = "gradle_nexus_plugin_android_test.keystore"
-    def androidStorePassword = "gradle_nexus_plugin_android_test"
-    def androidKeyAlias = "gradle_nexus_plugin_android_test"
-    def androidKeyPassword = "gradle_nexus_plugin_android_test"
-
-    protected void writeDefaultBuildFile(File buildfile) {
-        buildfile << """
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath files('../classes/main')
-        classpath 'com.jakewharton.sdkmanager:gradle-plugin:${buildscriptDependenciesAndroidSdkManagerPluginVersion}'
-        classpath 'com.android.tools.build:gradle:${buildscriptDependenciesAndroidGradlePluginVersion}'
-    }
-}
-apply plugin: 'android-sdk-manager'
-allprojects {
-    repositories {
-        mavenCentral()
-    }
-}
-
-"""
+        settingsFile = createNewFile(integTestDir, 'settings.gradle')
     }
 
-    protected File createNewEmptyAndroidManifestFile(File parent, String packageName) {
-        File file = createNewFile(parent, 'AndroidManifest.xml')
+    protected AndroidProjectSettings createRootAndroidProjectSettings() {
+        new AndroidProjectSettings()
+    }
 
-        file << """
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="$packageName">
-    <application />
-</manifest>
-"""
+    protected void AddSubProjects(AndroidProjectSettings settings) {
+        subprojects += [(settings.projectName) : settings]
+    }
 
+    protected AndroidProjectSettings createAndroidProjectSettingsForAndroidApplication(String projectName, List<String> dependencies) {
+        AndroidProjectSettings settings = AndroidProjectSettings.clone(rootSettings)
+
+        settings.androidDefaultConfigApplicationId = "${AndroidProjectSettings.DEFAULT_PACKAGE_BASE_NAME}.${projectName}"
+
+        settings.projectName = projectName
+        settings.projectDependencies = dependencies
+
+        settings.projectDir = createNewDir(integTestDir, projectName)
+        settings.projectMainSrcDir = createNewDir(settings.projectDir, settings.projectMainSrcDirPath)
+
+        settings.projectBuildGradleFile = createBuildGradleForAndroidApplication(settings)
+        settings.projectAndroidManifestFile = createNewEmptyAndroidManifestFile(settings)
+        settings.projectAndroidKeyStoreFile = createKeyStoreFile(settings)
+
+        settings.outputsArtifactDir = new File(integTestDir, "${projectName}/${settings.androidGradlePluginVersion.getOutputsApkDirPath()}")
+
+        settingsFile << "include '$projectName'\n"
+        settings
+    }
+
+    protected File createBuildGradleForAndroidApplication(AndroidProjectSettings settings) {
+        AndroidBuildGradleBuilderInterface builder = settings.androidGradlePluginVersion.getBuilder()
+        File file = createNewFile(settings.projectDir, 'build.gradle')
+        file << builder.getAndroidApplicationProjectString(settings)
         file
     }
 
+    protected AndroidProjectSettings createAndroidProjectSettingsForAndroidLibrary(String projectName, List<String> dependencies) {
+        AndroidProjectSettings settings = AndroidProjectSettings.clone(rootSettings)
 
-    protected void assembleBuildStringForAndroidApplication(File buildfile, projectName, applicationId, List<String> dependencies) {
+        settings.androidDefaultConfigApplicationId = "${AndroidProjectSettings.DEFAULT_PACKAGE_BASE_NAME}.${projectName}"
 
-        // project(':${projectName}') {
-        buildfile << """
-apply plugin: 'android'
-apply plugin: org.gradle.api.plugins.nexus.NexusPlugin
+        settings.projectName = projectName
+        settings.projectDependencies = dependencies
 
-android {
-    compileSdkVersion ${androidCompileSdkVersion}
-    buildToolsVersion "${androidBuildToolsVersion}"
+        settings.projectDir = createNewDir(integTestDir, projectName)
+        settings.projectMainSrcDir = createNewDir(settings.projectDir, settings.projectMainSrcDirPath)
 
-    defaultConfig {
-        applicationId "${applicationId}"
-        minSdkVersion ${androidDefaultConfigMinSdkVersion}
-        targetSdkVersion ${androidDefaultConfigTargetSdkVersion}
-        versionCode ${androidDefaultConfigVersionCode}
-        versionName "${androidDefaultConfigVersionName}"
-    }
-    signingConfigs {
-        release {
-            storeFile file("${androidStoreFile}")
-            storePassword "${androidStorePassword}"
-            keyAlias "${androidKeyAlias}"
-            keyPassword "${androidKeyPassword}"
-        }
-    }
-    buildTypes {
-        release {
-            debuggable false
-            zipAlign true
-            runProguard false
-            signingConfig signingConfigs.release
-        }
-    }
-    lintOptions {
-        abortOnError false
-    }
-}
+        settings.projectBuildGradleFile = createBuildGradleForAndroidLibrary(settings)
+        settings.projectAndroidManifestFile = createNewEmptyAndroidManifestFile(settings)
+        settings.projectAndroidKeyStoreFile = null //createKeyStoreFile(settings)
 
-dependencies {
-    // TODO:
-}
+        settings.outputsArtifactDir = new File(integTestDir, "${projectName}/${settings.androidGradlePluginVersion.getOutputsAarDirPath()}")
 
-"""
-
+        settingsFile << "include '$projectName'\n"
+        settings
     }
 
+    protected File createBuildGradleForAndroidLibrary(AndroidProjectSettings settings) {
+        AndroidBuildGradleBuilderInterface builder = settings.androidGradlePluginVersion.getBuilder()
+        File file = createNewFile(settings.projectDir, 'build.gradle')
+        file << builder.getAndroidLibraryProjectString(settings)
+        file
+    }
 
+    protected AndroidProjectSettings createAndroidProjectSettingsForJavaLibrary(String projectName, List<String> dependencies) {
+        // TODO:
+        AndroidProjectSettings settings = new AndroidProjectSettings()
+        //settings.outputsArtifactDir = new File(integTestDir, "${projectName}/build/libs")
+        settings
+    }
 
+    protected File createBuildGradleForJavaLibrary(AndroidProjectSettings settings) {
+        AndroidBuildGradleBuilderInterface builder = settings.androidGradlePluginVersion.getBuilder()
+        File file = createNewFile(settings.projectDir, 'build.gradle')
+        file << builder.getJavaLibraryProjectString(settings)
+        file
+    }
 
+    protected File createKeyStoreFile(AndroidProjectSettings settings) {
+        copyFile(AndroidProjectSettings.DEFAULT_ANDROID_KEYSTORE_FILE, new File(settings.projectDir, settings.getAndroidSigningConfigsStoreFile()))
+    }
+
+    protected File createNewEmptyAndroidManifestFile(AndroidProjectSettings settings) {
+        AndroidBuildGradleBuilderInterface builder = settings.androidGradlePluginVersion.getBuilder()
+        File file = createNewFile(settings.projectMainSrcDir, 'AndroidManifest.xml')
+        file << builder.getEmptyAndroidManifestString(settings)
+        file
+    }
 
 }

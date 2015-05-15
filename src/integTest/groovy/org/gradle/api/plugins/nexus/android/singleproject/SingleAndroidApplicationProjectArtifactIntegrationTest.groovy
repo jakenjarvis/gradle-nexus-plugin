@@ -24,27 +24,30 @@ import org.gradle.tooling.model.GradleProject
  */
 class SingleAndroidApplicationProjectArtifactIntegrationTest extends SingleAndroidApplicationProjectBuildIntegrationTest {
     def "Creates all configured APK for default configuration"() {
+        Map<String, List<String>> mapExpectedFilenames = [:]
+
         when:
-        subprojects.each { subproject ->
-            projectBuildFiles[subproject] << """
+        def projectName = "androidapp"
+        mapExpectedFilenames += [ (projectName) : ["${projectName}-debug.apk", "${projectName}-debug-unaligned.apk",
+                                                   "${projectName}-release.apk", "${projectName}-release-unaligned.apk",
+                                                   "${projectName}-release.apk.asc"
+        ]]
+
+        subprojects[projectName].projectBuildGradleFile << """
 nexus {
     attachSources = false
     attachTests = false
     attachJavadoc = false
 }
 """
-        }
 
-        GradleProject project = runTasks(buildTargetGradleVersion, integTestDir, 'assemble')
+        String gradleVersion = rootSettings.androidGradlePluginVersion.getGradleVersion()
+        GradleProject project = runTasks(gradleVersion, integTestDir, 'assemble')
 
         then:
-        subprojects.each { subproject ->
-            File apkDir = new File(integTestDir, "${subproject}/build/outputs/apk")
-            def expectedFilenames = ["${subproject}-debug.apk", "${subproject}-debug-unaligned.apk",
-                                    "${subproject}-release.apk", "${subproject}-release-unaligned.apk",
-                                    "${subproject}-release.apk.asc"
-            ]
-            assertExistingFiles(apkDir, expectedFilenames)
+        subprojects.each { name, settings ->
+            def expectedFilenames = mapExpectedFilenames[name]
+            assertExistingFiles(settings.outputsArtifactDir, expectedFilenames)
         }
     }
 

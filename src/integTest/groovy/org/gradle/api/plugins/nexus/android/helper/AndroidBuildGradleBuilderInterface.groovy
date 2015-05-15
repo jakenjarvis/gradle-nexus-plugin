@@ -13,24 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.api.plugins.nexus.android.singleproject
-
-import org.gradle.api.plugins.nexus.android.AbstractAndroidIntegrationTest
+package org.gradle.api.plugins.nexus.android.helper
 
 /**
- * Single android application project integration test.
+ * Builder Interface for output to the build.gradle.
  *
  * @author jaken.jarvis@gmail.com
  */
-abstract class SingleAndroidApplicationProjectBuildIntegrationTest extends AbstractAndroidIntegrationTest {
+public interface AndroidBuildGradleBuilderInterface {
+    String getRootBuildGradleString(AndroidProjectSettings settings)
 
-    def setup() {
-        //AddSubProjects(createAndroidProjectSettingsForAndroidApplication("androidapp", []))
-
-        AddSubProjects(createAndroidProjectSettingsForAndroidApplication("androidapp", [
-                "compile project(path: ':androidlib')"
-        ]))
-        AddSubProjects(createAndroidProjectSettingsForAndroidLibrary("androidlib", []))
-
-    }
+    String getEmptyAndroidManifestString(AndroidProjectSettings settings)
+    String getAndroidApplicationProjectString(AndroidProjectSettings settings)
+    String getAndroidLibraryProjectString(AndroidProjectSettings settings)
+    String getJavaLibraryProjectString(AndroidProjectSettings settings)
 }

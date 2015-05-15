@@ -43,12 +43,12 @@ abstract class AbstractIntegrationTest extends Specification {
             fail('Unable to create integration test directory.')
         }
 
-        buildFile = createNewFile(integTestDir, 'build.gradle')
-        writeDefaultBuildFile(buildFile)
+        onSetup()
     }
 
-    protected void writeDefaultBuildFile(File buildfile) {
-        buildfile << """
+    protected void onSetup() {
+        buildFile = createNewFile(integTestDir, 'build.gradle')
+        buildFile << """
 buildscript {
     dependencies {
         classpath files('../classes/main')
@@ -58,7 +58,7 @@ buildscript {
 """
     }
 
-    protected File createNewDir(File parent, String dirname) {
+   protected File createNewDir(File parent, String dirname) {
         File dir = new File(parent, dirname)
 
         if(!dir.exists()) {
